@@ -1,7 +1,0 @@
-target
-.git
-.env
-node_modules
-*.md
-deploy
-tests
