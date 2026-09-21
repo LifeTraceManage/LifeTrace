@@ -1,6 +1,0 @@
-$ErrorActionPreference = "Stop"
-$base = "http://127.0.0.1:8787"
-Invoke-RestMethod "$base/health/live"
-Invoke-RestMethod "$base/api/v1/meta/version"
-Invoke-RestMethod "$base/api/v1/sync/capabilities"
-Write-Host "Smoke test passed"

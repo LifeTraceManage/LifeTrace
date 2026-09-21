@@ -1,2 +1,0 @@
-"""Offline ECDICT lookup services."""
-
