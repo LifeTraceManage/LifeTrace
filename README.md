@@ -1,310 +1,134 @@
-# LifeTrace
+# LifeTrace Architecture Hub
 
-> 一个以 **local-first** 为核心的个人管理平台，把坚持、英语、健身、财务、笔记、照片和 AI 助手放进同一套长期可积累的数据系统中。
+> LifeTrace 系列的总架构、仓库边界、跨应用契约与架构决策中心。
 
-LifeTrace 目前以 **Windows 桌面端**为主要使用入口，同时提供面向 LifeTrace Cloud 的**浏览器客户端**。项目采用 Monorepo：Desktop、Cloud、共享契约和部署配置位于同一个仓库，但保持独立的源码、依赖、构建和发布边界。
+## 仓库定位
 
-当前桌面版本：`0.2.1`
+`LifeTraceManage/LifeTrace` **不再是 LifeTrace 的可运行 Monorepo，也不再承担任何生产应用的源码职责**。
 
-## 项目目标
+LifeTrace 已拆分为多个独立仓库。各产品的实现、测试、CI、发布与运行配置，以对应子仓库为唯一事实来源；本仓库只维护 **跨仓库、跨产品、跨平台的系统级设计**。
 
-LifeTrace 不是单一的打卡工具，而是一个长期个人数据系统。设计重点包括：
+旧 Monorepo 中遗留的 `apps/`、`services/`、`crates/`、`contracts/`、`deploy/` 等内容仅视为历史资料，在完成清理前不得再作为构建、部署或开发依据。
 
-- **Local-first**：桌面端核心数据优先保存在本地 SQLite，日常使用不依赖云端服务。
-- **统一记录**：坚持、训练、阅读、消费、笔记等信息进入同一个个人管理平台，而不是散落在多个应用中。
-- **长期反馈**：不仅记录“做没做”，还要支持趋势、复盘、统计和后续 AI 分析。
-- **桌面软件体验**：Tauri 原生桌面壳层、右键菜单、快捷操作、确认流程、自动更新能力和本地文件能力。
-- **隐私边界明确**：照片、私密相册、局域网上传等本地能力不暴露给浏览器客户端。
-- **云端可选**：Desktop 与 Cloud 通过稳定契约同步，不要求必须同时部署或同时发布。
+## LifeTrace 系列
 
-## 当前功能
+| 仓库 | 角色 | 当前主要技术栈 |
+| --- | --- | --- |
+| [LifeTrace-execute](https://github.com/LifeTraceManage/LifeTrace-execute) | 执行中心：Today、Task、Project、Calendar、Collection、Review、Focus 等 | Flutter / Riverpod / Drift / SQLite |
+| [LifeTrace-finance](https://github.com/LifeTraceManage/LifeTrace-finance) | 财务中心：账本、账户、交易、预算、导入、AI 记账 | Flutter / Riverpod / Drift，基于 BeeCount 演进 |
+| [LifeTrace-assets](https://github.com/LifeTraceManage/LifeTrace-assets) | 资产中心：资产全生命周期、估值、提醒、跨应用 EntityLink | Flutter / Sembast / IndexedDB |
+| [LifeTrace-desktop](https://github.com/LifeTraceManage/LifeTrace-desktop) | 桌面原生入口与本地能力承载 | Tauri 2 / React / TypeScript / Rust |
+| [LifeTrace-web](https://github.com/LifeTraceManage/LifeTrace-web) | 浏览器入口与 Web 聚合界面 | React 19 / TypeScript / Vite |
+| [LifeTrace-cloud](https://github.com/LifeTraceManage/LifeTrace-cloud) | 共享云平台：Auth、Sync、Files、EntityLink、跨端公共能力 | Rust / Axum / PostgreSQL |
+| [LifeTrace-agent](https://github.com/LifeTraceManage/LifeTrace-agent) | 本地智能 Agent 平台：工作流、能力调度、浏览器/API 插件 | Python / FastAPI / LangGraph / PydanticAI |
 
-| 模块 | 当前能力 |
-| --- | --- |
-| **个人总览** | 汇总今日坚持、本周训练、本月支出、总资产、最近训练、最近账单和笔记 |
-| **AI 管家** | 基于个人记录进行查询、总结与回顾；支持独立 AI 配置 |
-| **坚持项目** | 自定义项目、目标与记录，查看完成情况和长期趋势 |
-| **每日英语** | 英文阅读、阅读总结、高亮、生词、阅读记录与统计 |
-| **健身训练** | 训练历史、训练数据导入、训记数据接入及手机上传入口 |
-| **财务管理** | 财务概览、账户、流水、分类及微信/支付宝账单导入 |
-| **笔记** | 长期笔记、编辑、文件夹/标签组织、搜索与桌面快捷操作 |
-| **生活日历** | 按日期查看跨模块生活记录 |
-| **每日复盘** | 对当天记录进行快速回顾和总结 |
-| **照片** | 本地照片同步与媒体管理，桌面端支持局域网手机上传 |
-| **私密相册** | 独立密码、本地加密存储、自动锁定、回收站、完整性检查；密码丢失后不提供恢复机制 |
-| **云端 / 浏览器** | 浏览器端通过 LifeTrace Cloud 使用适合云端运行的业务模块，不复制桌面本地数据库 |
+## 总体架构
 
-> 浏览器端不会包含照片同步、私密相册、局域网上传、本地密钥和设备文件路径等桌面专属能力。
+```mermaid
+flowchart TB
+    U[User]
 
-## 架构
+    subgraph Clients["LifeTrace Clients / Domain Apps"]
+        EX[LifeTrace Execute]
+        FI[LifeTrace Finance]
+        AS[LifeTrace Assets]
+        DE[LifeTrace Desktop]
+        WE[LifeTrace Web]
+    end
 
-```text
-                         LifeTrace
-                            │
-          ┌─────────────────┴─────────────────┐
-          │                                   │
-   Desktop / Windows                    Browser Client
-   Tauri 2 + React                      React + Vite
-          │                                   │
-          │                                   │ HTTP
-          ▼                                   ▼
-   Local SQLite                         LifeTrace Cloud
-   Local files / vault                  Rust + Axum
-   Native capabilities                       │
-          │                                   ▼
-          │                              PostgreSQL
-          │                                   │
-          └──────── Shared contracts ─────────┘
-                     crates/contracts
+    subgraph Intelligence["Intelligence"]
+        AG[LifeTrace Agent]
+    end
+
+    subgraph Platform["Shared Platform"]
+        CL[LifeTrace Cloud]
+        AU[Auth / Identity]
+        SY[Sync v1]
+        FL[Files]
+        EL[EntityLink]
+    end
+
+    subgraph Local["Local-first Storage"]
+        L1[Drift / SQLite]
+        L2[Sembast / IndexedDB]
+        L3[Desktop SQLite / Local Files]
+        L4[Agent SQLite / Checkpoints]
+    end
+
+    subgraph External["External Providers"]
+        LLM[LLM Providers]
+        MAP[Amap]
+        RAIL[12306]
+        WEB[Other Web/API Providers]
+    end
+
+    U --> EX
+    U --> FI
+    U --> AS
+    U --> DE
+    U --> WE
+    U --> AG
+
+    EX --> L1
+    FI --> L1
+    AS --> L2
+    DE --> L3
+    AG --> L4
+
+    EX <--> CL
+    AS <--> CL
+    DE <--> CL
+    WE <--> CL
+    FI -. compatibility / dedicated sync boundary .-> CL
+
+    CL --> AU
+    CL --> SY
+    CL --> FL
+    CL --> EL
+
+    AG --> LLM
+    AG --> MAP
+    AG --> RAIL
+    AG --> WEB
+    AG -. explicit API / capability contract .-> CL
 ```
 
-### Desktop
+核心原则：
 
-桌面应用位于 `apps/desktop/`：
+1. **Domain ownership 明确**：Task 属于 Execute，Finance 数据属于 Finance，Asset 生命周期属于 Assets。
+2. **Local-first 优先**：原生应用的核心 CRUD 不依赖 Cloud 在线。
+3. **Cloud 是共享平台，不是巨型业务单体**：负责身份、同步、文件、跨应用链接等公共能力。
+4. **跨应用只通过显式契约协作**：禁止通过读取另一个应用的私有数据库形成耦合。
+5. **Agent 是独立执行层**：Agent 通过 capability/API 获取事实和执行动作，不直接侵入业务存储。
+6. **每个仓库可独立构建、测试、发布**：总架构仓不持有产品构建链。
+7. **OpenSpec 负责仓库内变更，ADR 负责跨仓库架构决策**。
 
-- React 19 + TypeScript + Vite
-- Tauri 2
-- Rust 本地能力层
-- SQLite（`rusqlite`）
-- 本地照片与局域网上传服务
-- AES-GCM + Argon2 私密相册
-- Tauri Updater / Dialog / Process 等原生插件
+## 架构文档入口
 
-### Cloud
+- [系统总架构](docs/architecture/SYSTEM_ARCHITECTURE.md)
+- [仓库职责与边界](docs/architecture/REPOSITORY_BOUNDARIES.md)
+- [数据、Local-first 与同步](docs/architecture/DATA_AND_SYNC.md)
+- [Agent 平台架构](docs/architecture/AGENT_ARCHITECTURE.md)
+- [架构治理与变更规则](docs/architecture/ARCHITECTURE_GOVERNANCE.md)
+- [Architecture Decision Records](docs/architecture/adr/)
 
-云端服务位于 `services/cloud/`：
+## Source of Truth
 
-- Rust
-- Axum
-- Tokio
-- PostgreSQL
-- SQLx
-- 账号、设备、会话、同步和浏览器 API
+当文档出现冲突时，按以下层级判断：
 
-### Shared Contracts
+1. **本仓库架构文档**：跨仓库边界、平台职责、系统级约束。
+2. **各产品仓库的 README / architecture / requirements**：产品自身职责与运行架构。
+3. **各仓库 OpenSpec**：正在实施或已经归档的具体变更设计。
+4. **代码与测试**：当前真实实现状态。
 
-Desktop 与 Cloud 不直接依赖彼此内部实现，跨端边界通过共享协议连接：
+如果第 1 层与产品实现发生冲突，必须通过 ADR 明确修改系统边界，而不是在某个子仓库里静默改变整体架构。
 
-- `crates/lifetrace-contracts/`
-- `crates/lifetrace-sync-client/`
-- `contracts/`
+## 本仓库不再做什么
 
-这样可以独立升级 Desktop 与 Cloud，同时通过契约检查控制兼容性。
+- 不新增业务源码；
+- 不构建 Desktop、Web、Cloud 或任何 Flutter 应用；
+- 不维护跨仓库复制的依赖；
+- 不保存某个产品的私有实现细节作为总架构；
+- 不把旧 Monorepo 目录当作生产来源。
 
-## 数据与隐私
-
-### 桌面端
-
-桌面端遵循 local-first 原则：业务数据主要保存在本地 SQLite，本地文件和桌面原生能力由 Tauri/Rust 层处理。
-
-私密相册与普通照片功能隔离：
-
-- 使用独立密码解锁；
-- 密码派生使用 Argon2；
-- 加密数据使用 AES-GCM；
-- 解锁后的敏感对象 URL 在锁定/离开后清理；
-- 支持窗口失焦/离开页签自动锁定；
-- 支持密文完整性检查；
-- 初始化时明确要求确认“密码丢失后无法恢复”。
-
-### 浏览器端
-
-浏览器客户端是 LifeTrace Cloud 的在线客户端，不是桌面本地数据库的 Web 镜像：
-
-- 不使用 IndexedDB 保存业务主数据；
-- 不提供离线写入队列；
-- 写操作以 Cloud 确认结果为准；
-- 桌面专属的本地文件、密钥、照片和局域网能力不会进入浏览器包。
-
-更详细的边界说明见 [`docs/browser-web.md`](docs/browser-web.md)。
-
-## 快速开始
-
-### 环境要求
-
-开发 Desktop 至少需要：
-
-- Node.js `>= 22.13.0`
-- Rust stable
-- Tauri 2 对应的平台构建环境
-
-Windows 开发机还需要满足 Tauri 的 Windows 编译依赖。
-
-### 安装 Desktop 依赖
-
-```powershell
-npm ci --prefix apps/desktop
-```
-
-### 启动桌面端
-
-从仓库根目录：
-
-```powershell
-npm run dev
-```
-
-或者：
-
-```powershell
-cd apps/desktop
-npm run dev
-```
-
-### 启动浏览器端与 Cloud
-
-本地启动 PostgreSQL / Cloud：
-
-```powershell
-docker compose -f deploy/cloud/docker-compose.local.yml --profile cloud up -d --build
-```
-
-生产环境可同时启用 BeeCount Cloud 兼容入口，让现成 BeeCount iOS 客户端连接
-同一台服务器。配置与数据边界见
-[`docs/beecount-cloud-integration/deployment.md`](docs/beecount-cloud-integration/deployment.md)。
-启用第二阶段只读适配器后，LifeTrace 浏览器端可在
-`/finance/beecount` 内直接查看 BeeCount 账本、交易、账户、分类、标签和预算。
-
-启动浏览器客户端：
-
-```powershell
-npm run browser:dev
-```
-
-默认开发访问地址：
-
-```text
-http://127.0.0.1:4173
-```
-
-需要显式指定 Cloud 地址时：
-
-```powershell
-$env:VITE_LIFETRACE_CLOUD_URL="http://127.0.0.1:8787"
-npm run browser:dev
-```
-
-## 常用命令
-
-以下命令均可在仓库根目录执行：
-
-| 命令 | 用途 |
-| --- | --- |
-| `npm run dev` | 启动 Tauri Desktop 开发环境 |
-| `npm run lint` | TypeScript 类型检查 |
-| `npm run test:unit` | 运行前端单元测试 |
-| `npm run test:desktop` | Desktop 类型检查 + 单测 + 两套 Web 构建 |
-| `npm run test:rust` | 运行 Desktop Rust 回归测试 |
-| `npm run web:build` | 构建 Tauri Web 前端 |
-| `npm run browser:build` | 构建浏览器客户端 |
-| `npm run build:desktop` | 构建 Tauri Desktop |
-| `npm run dev:cloud` | 本地启动 Cloud 服务 |
-| `npm run test:cloud` | 运行 Cloud Rust 测试 |
-| `npm run build:cloud` | 构建 Cloud Release |
-| `npm run contracts:check` | 重新生成并检查共享契约是否一致 |
-| `npm run test:all` | Desktop + Cloud + Contracts 全量验证 |
-
-## 测试与质量门禁
-
-当前仓库的主要验证链包括：
-
-1. TypeScript 类型检查；
-2. 前端单元测试；
-3. Tauri Web 构建；
-4. Browser Web 构建；
-5. Desktop Rust 回归测试；
-6. Cloud Rust 测试；
-7. 共享契约一致性检查；
-8. Windows Tauri 可执行文件构建验证。
-
-客户端同时包含 Error Boundary、客户端日志与错误诊断基础设施，用于避免请求发出前异常、原生 API 调用错误等问题被业务层错误提示吞掉后难以定位。
-
-## 仓库结构
-
-```text
-LifeTrace/
-├─ apps/
-│  └─ desktop/                 # Tauri + React + SQLite + Browser UI
-├─ services/
-│  └─ cloud/                   # Rust + Axum + PostgreSQL
-├─ crates/                     # Desktop / Cloud 共享 Rust crates
-├─ contracts/                  # API / 同步契约及生成类型
-├─ deploy/                     # Cloud / PostgreSQL 部署配置
-├─ design-system/              # LifeTrace 视觉与交互规范
-├─ docs/                       # Roadmap、执行方案、设计与发布文档
-├─ scripts/                    # 仓库级开发 / 发布脚本
-├─ tools/                      # 契约生成等开发工具
-├─ package.json                # Monorepo 统一命令入口
-└─ README.md
-```
-
-## UI 与桌面交互
-
-LifeTrace 的用户端 UI 正在从“网页式 Dashboard”收敛为桌面软件体验。目前已经建立：
-
-- 统一字号、间距、颜色、圆角和控件 Token；
-- 更清晰的信息层级，减少长期常驻的小字提示；
-- 统一 `Action` 模型；
-- 业务对象右键菜单；
-- `···` 更多菜单；
-- 危险操作确认流程；
-- 菜单键盘导航和边界定位；
-- Toast / Dialog / Context Menu 等统一交互基础设施。
-
-实施记录见 [`docs/ui-redesign/IMPLEMENTATION_REPORT.md`](docs/ui-redesign/IMPLEMENTATION_REPORT.md)。
-
-## Windows 发布
-
-Desktop 与 Cloud 独立发布。
-
-Windows Desktop 使用 Tauri 构建，仓库中已经包含 Windows Release / Updater 的自动化流程和版本一致性检查。安装包、签名及更新元数据的完整发布方式见：
-
-[`docs/windows-release.md`](docs/windows-release.md)
-
-## 主要文档
-
-- [完整 Roadmap](docs/roadmap.md)
-- [浏览器端架构与边界](docs/browser-web.md)
-- [UI 重构执行方案](docs/ui-redesign/EXECUTION_PLAN.md)
-- [UI 重构实施报告](docs/ui-redesign/IMPLEMENTATION_REPORT.md)
-- [本地加密相册设计](docs/local-encrypted-album/)
-- [成长树系统规划](docs/growth-tree-system/)
-- [Windows 发布与在线更新](docs/windows-release.md)
-
-## Roadmap 与当前实现的关系
-
-`docs/` 中包含大量后续设计和 EPIC 规划。**设计文档存在不代表功能已经进入当前版本。**
-
-README 的“当前功能”以 `main` 分支现有代码为准；成长树、更完整的长期成长模型以及后续 AI 能力等仍按照 Roadmap 分阶段演进。
-
-## Sparse Checkout
-
-虽然 LifeTrace 是一个 Monorepo，但可以只检出需要的部分。
-
-Desktop：
-
-```bash
-git clone --filter=blob:none --no-checkout https://github.com/zhouxingxing1279/LifeTrace.git
-cd LifeTrace
-git sparse-checkout init --cone
-git sparse-checkout set apps/desktop crates contracts
-git checkout main
-```
-
-Cloud：
-
-```bash
-git clone --filter=blob:none --no-checkout https://github.com/zhouxingxing1279/LifeTrace.git
-cd LifeTrace
-git sparse-checkout init --cone
-git sparse-checkout set services/cloud crates contracts deploy/cloud scripts/cloud
-git checkout main
-```
-
-## 发布边界
-
-- **Desktop**：Windows / Tauri 应用，拥有独立版本与发布流程。
-- **Cloud**：Rust 服务 / Docker 部署，拥有独立发布周期。
-- **Contracts**：控制 Desktop、Browser 与 Cloud 之间的协议兼容。
-
-Desktop 与 Cloud 不要求部署在同一台机器，也不要求同时发布。
+本仓库的长期目标是成为 **LifeTrace 系列的 Architecture Handbook + ADR Registry + Repository Map**。
